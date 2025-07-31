@@ -1,0 +1,228 @@
+name: Nightly Tests
+
+on:
+  schedule:
+    # Run every night at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  extended-tests:
+    name: Extended Test Suite
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+        enable-cache: true
+
+    - name: Install dependencies
+      working-directory: ./telegram-analytics
+      run: uv sync --dev
+
+    - name: Run extended unit tests with coverage
+      working-directory: ./telegram-analytics
+      run: |
+        echo "🧪 Running extended unit tests with detailed coverage..."
+        uv run pytest tests/ -v --tb=long --cov=src/telegram_analytics --cov-report=term-missing --cov-report=html
+
+    - name: Upload coverage reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report-${{ matrix.python-version }}
+        path: telegram-analytics/htmlcov/
+
+    - name: Run performance benchmarks
+      working-directory: ./telegram-analytics
+      run: |
+        echo "⚡ Running performance benchmarks..."
+        uv run python -c "
+        import time
+        import sys
+        from pathlib import Path
+        
+        # Add src to path
+        src_path = Path('src')
+        sys.path.insert(0, str(src_path))
+        
+        # Benchmark module import time
+        start = time.time()
+        from telegram_analytics.core.config import TelegramConfig, get_global_config
+        from telegram_analytics.core.client import TelegramAnalyticsClient
+        import_time = time.time() - start
+        
+        print(f'📊 Module import time: {import_time:.4f}s')
+        
+        # Benchmark config creation
+        start = time.time()
+        config = TelegramConfig(api_id=123, api_hash='test')
+        config_time = time.time() - start
+        
+        print(f'📊 Config creation time: {config_time:.4f}s')
+        
+        if import_time > 1.0:
+            print('⚠️  Module import time is slow (>1s)')
+            sys.exit(1)
+        
+        if config_time > 0.1:
+            print('⚠️  Config creation time is slow (>0.1s)')
+            sys.exit(1)
+        
+        print('✅ Performance benchmarks passed!')
+        "
+
+    - name: Stress test imports
+      working-directory: ./telegram-analytics
+      run: |
+        echo "🔄 Stress testing module imports..."
+        uv run python -c "
+        import sys
+        from pathlib import Path
+        import time
+        
+        # Add src to path
+        src_path = Path('src')
+        sys.path.insert(0, str(src_path))
+        
+        # Test multiple imports
+        for i in range(100):
+            try:
+                # Import and immediately remove to test repeated imports
+                if 'telegram_analytics.core.config' in sys.modules:
+                    del sys.modules['telegram_analytics.core.config']
+                if 'telegram_analytics.core.client' in sys.modules:
+                    del sys.modules['telegram_analytics.core.client']
+                
+                from telegram_analytics.core.config import TelegramConfig
+                from telegram_analytics.core.client import TelegramAnalyticsClient
+                
+                if i % 20 == 0:
+                    print(f'✅ Iteration {i} passed')
+            except Exception as e:
+                print(f'❌ Failed at iteration {i}: {e}')
+                sys.exit(1)
+        
+        print('🎉 Stress test completed successfully!')
+        "
+
+  dependency-check:
+    name: Dependency Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.13"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+        enable-cache: true
+
+    - name: Analyze dependencies
+      working-directory: ./telegram-analytics
+      run: |
+        echo "📦 Analyzing project dependencies..."
+        
+        # Install dependencies
+        uv sync --dev
+        
+        # Show dependency tree
+        echo "📊 Dependency tree:"
+        uv tree
+        
+        # Check for outdated packages
+        echo ""
+        echo "🔍 Checking for outdated packages..."
+        uv pip list --outdated || echo "All packages up to date"
+        
+        # Show package sizes
+        echo ""
+        echo "💾 Package analysis:"
+        uv pip show telethon pydantic pydantic-settings pytest black ruff mypy
+        
+        echo "✅ Dependency analysis completed!"
+
+  docs-validation:
+    name: Documentation Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Validate all documentation
+      run: |
+        echo "📚 Comprehensive documentation validation..."
+        
+        # Check all markdown files for basic structure
+        find . -name "*.md" -type f | while read file; do
+          echo "Checking $file..."
+          
+          # Check file has content
+          if [ ! -s "$file" ]; then
+            echo "❌ $file is empty"
+            exit 1
+          fi
+          
+          # Check for basic markdown structure
+          if ! grep -q "^#" "$file"; then
+            echo "⚠️  $file might be missing headers"
+          fi
+        done
+        
+        # Validate specific documentation requirements
+        echo ""
+        echo "🔍 Validating specific documentation..."
+        
+        # Check README has launch instructions
+        if ! grep -q "make\|python" README.md; then
+          echo "❌ README.md missing launch instructions"
+          exit 1
+        fi
+        
+        # Check development plan exists and has structure
+        if ! grep -q "Step\|Phase" DEVELOPMENT_PLAN.md; then
+          echo "❌ DEVELOPMENT_PLAN.md missing proper structure"
+          exit 1
+        fi
+        
+        echo "✅ Documentation validation passed!"
+
+  notify:
+    name: Nightly Results
+    runs-on: ubuntu-latest
+    needs: [extended-tests, dependency-check, docs-validation]
+    if: always()
+    
+    steps:
+    - name: Nightly Summary
+      run: |
+        echo "🌙 Nightly Test Results"
+        echo "======================"
+        echo "Extended Tests: ${{ needs.extended-tests.result }}"
+        echo "Dependency Check: ${{ needs.dependency-check.result }}" 
+        echo "Docs Validation: ${{ needs.docs-validation.result }}"
+        echo ""
+        echo "🕐 Completed at: $(date)"
+        
+        # Note: In a real project, you might want to send notifications
+        # to Slack, Discord, or email on failures

@@ -1,0 +1,161 @@
+name: PR Validation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [ main, master, develop ]
+
+jobs:
+  validate-pr:
+    name: Pull Request Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        # Fetch full history for proper diff analysis
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.13"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+        enable-cache: true
+
+    - name: Install dependencies
+      working-directory: ./telegram-analytics
+      run: uv sync --dev
+
+    - name: Analyze changed files
+      run: |
+        echo "🔍 Analyzing changed files in PR..."
+        
+        # Get list of changed files
+        CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+        echo "Changed files:"
+        echo "$CHANGED_FILES"
+        
+        # Count changes
+        PYTHON_FILES=$(echo "$CHANGED_FILES" | grep -E "\.py$" | wc -l)
+        TEST_FILES=$(echo "$CHANGED_FILES" | grep -E "test_.*\.py$|.*_test\.py$" | wc -l)
+        DOC_FILES=$(echo "$CHANGED_FILES" | grep -E "\.md$|\.rst$|\.txt$" | wc -l)
+        
+        echo ""
+        echo "📊 Change summary:"
+        echo "Python files changed: $PYTHON_FILES"
+        echo "Test files changed: $TEST_FILES"
+        echo "Documentation files changed: $DOC_FILES"
+        
+        # Store for other jobs
+        echo "python_files=$PYTHON_FILES" >> $GITHUB_ENV
+        echo "test_files=$TEST_FILES" >> $GITHUB_ENV
+        echo "doc_files=$DOC_FILES" >> $GITHUB_ENV
+
+    - name: Run tests on changed code
+      working-directory: ./telegram-analytics
+      if: env.python_files > 0
+      run: |
+        echo "🧪 Running tests specifically for changed Python code..."
+        
+        # Run full test suite since we don't have granular test selection yet
+        uv run pytest tests/ -v
+        
+        echo "🔍 Running linting on changed files..."
+        # Note: We run on all files for now, but could be optimized to only check changed files
+        uv run ruff check src/ tests/
+
+    - name: Check for test coverage on new code
+      working-directory: ./telegram-analytics
+      if: env.python_files > 0
+      run: |
+        echo "📊 Checking test coverage..."
+        
+        # Run tests with coverage
+        uv run pytest tests/ --cov=src/telegram_analytics --cov-report=term-missing --cov-fail-under=60
+        
+        # Note: In a more mature project, you'd check coverage specifically for changed lines
+        echo "✅ Coverage check completed"
+
+    - name: Validate documentation changes
+      if: env.doc_files > 0
+      run: |
+        echo "📚 Validating documentation changes..."
+        
+        # Check that documentation files are not empty
+        git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E "\.md$" | while read file; do
+          if [ -f "$file" ] && [ ! -s "$file" ]; then
+            echo "❌ $file is empty"
+            exit 1
+          fi
+        done
+        
+        echo "✅ Documentation validation passed"
+
+    - name: Check commit message format
+      run: |
+        echo "📝 Validating commit messages..."
+        
+        # Get commit messages in this PR
+        COMMITS=$(git log --oneline origin/${{ github.base_ref }}...HEAD)
+        echo "Commits in this PR:"
+        echo "$COMMITS"
+        
+        # Basic validation - ensure no empty commit messages
+        if echo "$COMMITS" | grep -q "^[a-f0-9]\+ *$"; then
+          echo "❌ Found commits with empty messages"
+          exit 1
+        fi
+        
+        echo "✅ Commit message validation passed"
+
+    - name: PR Summary
+      run: |
+        echo "📋 Pull Request Validation Summary"
+        echo "================================="
+        echo "Python files changed: ${{ env.python_files }}"
+        echo "Test files changed: ${{ env.test_files }}"
+        echo "Documentation files changed: ${{ env.doc_files }}"
+        echo ""
+        echo "✅ All PR validations passed!"
+        echo ""
+        echo "💡 Next steps after merge:"
+        echo "- Monitor CI pipeline results"
+        echo "- Update documentation if needed"
+        echo "- Consider running connectivity tests manually"
+
+  size-check:
+    name: PR Size Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Check PR size
+      run: |
+        echo "📏 Checking PR size..."
+        
+        # Calculate lines added/removed
+        LINES_ADDED=$(git diff --stat origin/${{ github.base_ref }}...HEAD | tail -1 | grep -o '[0-9]\+ insertion' | grep -o '[0-9]\+' || echo "0")
+        LINES_REMOVED=$(git diff --stat origin/${{ github.base_ref }}...HEAD | tail -1 | grep -o '[0-9]\+ deletion' | grep -o '[0-9]\+' || echo "0")
+        FILES_CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | wc -l)
+        
+        echo "📊 PR Statistics:"
+        echo "Files changed: $FILES_CHANGED"
+        echo "Lines added: $LINES_ADDED"
+        echo "Lines removed: $LINES_REMOVED"
+        
+        # Warn if PR is very large
+        if [ "$LINES_ADDED" -gt 1000 ] || [ "$FILES_CHANGED" -gt 20 ]; then
+          echo "⚠️  This is a large PR. Consider breaking it into smaller PRs for easier review."
+        else
+          echo "✅ PR size is reasonable for review"
+        fi

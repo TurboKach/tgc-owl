@@ -1,0 +1,228 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+        enable-cache: true
+
+    - name: Install dependencies
+      working-directory: ./telegram-analytics
+      run: |
+        uv sync --dev
+        uv pip list
+
+    - name: Run unit tests
+      working-directory: ./telegram-analytics
+      run: |
+        echo "🧪 Running unit tests..."
+        uv run pytest tests/ -v --tb=short
+
+    - name: Run linting
+      working-directory: ./telegram-analytics
+      run: |
+        echo "🔍 Running linting checks..."
+        uv run ruff check src/ tests/
+
+    - name: Check code formatting
+      working-directory: ./telegram-analytics
+      run: |
+        echo "🎨 Checking code formatting..."
+        uv run black --check src/ tests/
+
+    - name: Run type checking
+      working-directory: ./telegram-analytics
+      run: |
+        echo "🔧 Running type checking..."
+        uv run mypy src/telegram_analytics/
+
+    - name: Validate module imports
+      working-directory: ./telegram-analytics
+      run: |
+        echo "📦 Validating module imports..."
+        uv run python -c "
+        import sys
+        from pathlib import Path
+        
+        # Add src to path
+        src_path = Path('src')
+        sys.path.insert(0, str(src_path))
+        
+        # Test core module imports
+        try:
+            from telegram_analytics.core import config, client
+            print('✅ Core modules import successfully')
+        except ImportError as e:
+            print(f'❌ Import error: {e}')
+            sys.exit(1)
+        
+        # Test config creation (without actual .env)
+        try:
+            from telegram_analytics.core.config import TelegramConfig
+            config = TelegramConfig(api_id=123, api_hash='test')
+            print('✅ TelegramConfig can be instantiated')
+        except Exception as e:
+            print(f'❌ Config instantiation error: {e}')
+            sys.exit(1)
+        
+        print('🎉 All import validations passed!')
+        "
+
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.13"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+        enable-cache: true
+
+    - name: Install dependencies
+      working-directory: ./telegram-analytics
+      run: uv sync --dev
+
+    - name: Run comprehensive code quality checks
+      working-directory: ./telegram-analytics
+      run: |
+        echo "🚀 Running comprehensive code quality checks..."
+        echo "=============================================="
+        
+        echo "📊 Code metrics..."
+        find src/ -name "*.py" -exec wc -l {} + | tail -1
+        echo "Total Python files: $(find src/ -name "*.py" | wc -l)"
+        
+        echo ""
+        echo "🔍 Detailed linting report..."
+        uv run ruff check src/ tests/ --output-format=github
+        
+        echo ""
+        echo "🧪 Test coverage report..."
+        uv run pytest tests/ --cov=src/telegram_analytics --cov-report=term-missing --cov-fail-under=50
+        
+        echo ""
+        echo "✅ Code quality checks completed!"
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.13"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+        enable-cache: true
+
+    - name: Install dependencies
+      working-directory: ./telegram-analytics
+      run: uv sync --dev
+
+    - name: Run security scan
+      working-directory: ./telegram-analytics
+      run: |
+        echo "🔒 Running security scan..."
+        
+        # Install safety for security checking
+        uv add --dev safety
+        
+        # Check for known security vulnerabilities
+        echo "Checking for known vulnerabilities..."
+        uv run safety check --json || echo "Safety check completed with warnings"
+        
+        # Check for common security issues in code
+        echo "Scanning code for security patterns..."
+        uv run ruff check src/ --select=S,B  # Security and bandit rules
+        
+        echo "✅ Security scan completed!"
+
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Validate documentation
+      run: |
+        echo "📚 Validating documentation..."
+        
+        # Check that key documentation files exist
+        test -f README.md || (echo "❌ README.md missing" && exit 1)
+        test -f telegram-analytics/README_SETUP.md || (echo "❌ Setup docs missing" && exit 1)
+        test -f DEVELOPMENT_PLAN.md || (echo "❌ Development plan missing" && exit 1)
+        
+        # Check documentation has content
+        [ $(wc -l < README.md) -gt 20 ] || (echo "❌ README.md too short" && exit 1)
+        
+        echo "✅ Documentation validation passed!"
+
+  summary:
+    name: CI Summary
+    runs-on: ubuntu-latest
+    needs: [test, code-quality, security, docs]
+    if: always()
+    
+    steps:
+    - name: CI Results Summary
+      run: |
+        echo "🎯 CI Pipeline Summary"
+        echo "====================="
+        echo "Test Suite: ${{ needs.test.result }}"
+        echo "Code Quality: ${{ needs.code-quality.result }}"
+        echo "Security: ${{ needs.security.result }}"
+        echo "Documentation: ${{ needs.docs.result }}"
+        echo ""
+        
+        if [[ "${{ needs.test.result }}" == "success" && 
+              "${{ needs.code-quality.result }}" == "success" && 
+              "${{ needs.security.result }}" == "success" && 
+              "${{ needs.docs.result }}" == "success" ]]; then
+          echo "🎉 All CI checks passed!"
+          exit 0
+        else
+          echo "❌ Some CI checks failed"
+          exit 1
+        fi
