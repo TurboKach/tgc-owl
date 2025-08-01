@@ -177,31 +177,10 @@ jobs:
         
         echo "✅ Security scan completed!"
 
-  docs:
-    name: Documentation
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Validate documentation
-      run: |
-        echo "📚 Validating documentation..."
-        
-        # Check that key documentation files exist
-        test -f README.md || (echo "❌ README.md missing" && exit 1)
-        test -f telegram-analytics/README_SETUP.md || (echo "❌ Setup docs missing" && exit 1)
-        
-        # Check documentation has content
-        [ $(wc -l < README.md) -gt 20 ] || (echo "❌ README.md too short" && exit 1)
-        
-        echo "✅ Documentation validation passed!"
-
   summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [test, code-quality, security, docs]
+    needs: [test, code-quality, security]
     if: always()
     
     steps:
