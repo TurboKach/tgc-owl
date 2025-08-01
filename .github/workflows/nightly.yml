@@ -199,9 +199,9 @@ jobs:
           exit 1
         fi
         
-        # Check development plan exists and has structure
-        if ! grep -q "Step\|Phase" DEVELOPMENT_PLAN.md; then
-          echo "❌ DEVELOPMENT_PLAN.md missing proper structure"
+        # Check setup guide has proper structure
+        if ! grep -q "Setup\|Install\|API\|Telegram" telegram-analytics/README_SETUP.md; then
+          echo "❌ README_SETUP.md missing proper setup instructions"
           exit 1
         fi
         
