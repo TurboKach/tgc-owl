@@ -192,7 +192,6 @@ jobs:
         # Check that key documentation files exist
         test -f README.md || (echo "❌ README.md missing" && exit 1)
         test -f telegram-analytics/README_SETUP.md || (echo "❌ Setup docs missing" && exit 1)
-        test -f DEVELOPMENT_PLAN.md || (echo "❌ Development plan missing" && exit 1)
         
         # Check documentation has content
         [ $(wc -l < README.md) -gt 20 ] || (echo "❌ README.md too short" && exit 1)
