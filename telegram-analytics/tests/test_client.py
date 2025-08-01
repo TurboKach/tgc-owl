@@ -10,8 +10,9 @@ import pytest
 src_path = Path(__file__).parent.parent / "src"
 sys.path.insert(0, str(src_path))
 
-from src.telegram_analytics.core.client import TelegramAnalyticsClient
-from src.telegram_analytics.core.config import TelegramConfig
+# pylint: disable=wrong-import-position
+from src.telegram_analytics.core.client import TelegramAnalyticsClient  # noqa: E402
+from src.telegram_analytics.core.config import TelegramConfig  # noqa: E402
 
 
 class TestTelegramAnalyticsClient:
@@ -40,9 +41,12 @@ class TestTelegramAnalyticsClient:
         assert client.client is None
         assert not client._authenticated
 
-    @patch("telegram_analytics.core.client.TelegramClient")
+    @patch("src.telegram_analytics.core.client.TelegramClient")
     async def test_initialize(self, mock_telegram_client, client):
         """Test client initialization."""
+        mock_client = AsyncMock()
+        mock_telegram_client.return_value = mock_client
+
         await client.initialize()
 
         assert client.client is not None
@@ -53,7 +57,7 @@ class TestTelegramAnalyticsClient:
         assert call_args[1]["api_id"] == 123456
         assert call_args[1]["api_hash"] == "test_hash"
 
-    @patch("telegram_analytics.core.client.TelegramClient")
+    @patch("src.telegram_analytics.core.client.TelegramClient")
     async def test_connect_success(self, mock_telegram_client, client):
         """Test successful connection."""
         mock_client = AsyncMock()
@@ -66,7 +70,7 @@ class TestTelegramAnalyticsClient:
         assert result is True
         mock_client.connect.assert_called_once()
 
-    @patch("telegram_analytics.core.client.TelegramClient")
+    @patch("src.telegram_analytics.core.client.TelegramClient")
     async def test_connect_failure(self, mock_telegram_client, client):
         """Test connection failure."""
         mock_client = AsyncMock()
@@ -79,7 +83,7 @@ class TestTelegramAnalyticsClient:
         assert result is False
         mock_client.connect.assert_called_once()
 
-    @patch("telegram_analytics.core.client.TelegramClient")
+    @patch("src.telegram_analytics.core.client.TelegramClient")
     async def test_is_authenticated(self, mock_telegram_client, client):
         """Test authentication check."""
         mock_client = AsyncMock()
@@ -92,7 +96,7 @@ class TestTelegramAnalyticsClient:
         assert result is True
         mock_client.is_user_authorized.assert_called_once()
 
-    @patch("telegram_analytics.core.client.TelegramClient")
+    @patch("src.telegram_analytics.core.client.TelegramClient")
     async def test_authenticate_already_authorized(self, mock_telegram_client, client):
         """Test authentication when already authorized."""
         mock_client = AsyncMock()
@@ -105,7 +109,7 @@ class TestTelegramAnalyticsClient:
         assert result is True
         assert client._authenticated is True
 
-    @patch("telegram_analytics.core.client.TelegramClient")
+    @patch("src.telegram_analytics.core.client.TelegramClient")
     async def test_authenticate_code_request(self, mock_telegram_client, client):
         """Test authentication code request."""
         mock_client = AsyncMock()
@@ -122,7 +126,7 @@ class TestTelegramAnalyticsClient:
             "+1234567890", force_sms=False
         )
 
-    @patch("telegram_analytics.core.client.TelegramClient")
+    @patch("src.telegram_analytics.core.client.TelegramClient")
     async def test_sign_in_success(self, mock_telegram_client, client):
         """Test successful sign in."""
         mock_client = AsyncMock()
@@ -145,7 +149,7 @@ class TestTelegramAnalyticsClient:
             password=None,
         )
 
-    @patch("telegram_analytics.core.client.TelegramClient")
+    @patch("src.telegram_analytics.core.client.TelegramClient")
     async def test_get_me_success(self, mock_telegram_client, client):
         """Test getting user information."""
         mock_client = AsyncMock()
@@ -162,7 +166,7 @@ class TestTelegramAnalyticsClient:
         assert result == mock_user
         mock_client.get_me.assert_called_once()
 
-    @patch("telegram_analytics.core.client.TelegramClient")
+    @patch("src.telegram_analytics.core.client.TelegramClient")
     async def test_disconnect(self, mock_telegram_client, client):
         """Test disconnection."""
         mock_client = AsyncMock()
@@ -176,7 +180,7 @@ class TestTelegramAnalyticsClient:
     async def test_context_manager(self):
         """Test async context manager functionality."""
         with patch(
-            "telegram_analytics.core.client.TelegramClient"
+            "src.telegram_analytics.core.client.TelegramClient"
         ) as mock_telegram_client:
             mock_client = AsyncMock()
             mock_telegram_client.return_value = mock_client

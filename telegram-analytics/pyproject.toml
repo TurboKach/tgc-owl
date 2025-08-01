@@ -1,8 +1,8 @@
 [project]
 name = "telegram-analytics"
 version = "0.1.0"
-description = "Add your description here"
-readme = "README.md"
+description = "Telegram Channel Analytics Bot - Comprehensive analytics for Telegram channels using Telethon userbot approach. Track subscriber events, post performance, and get actionable insights with real-time dashboards and reporting."
+
 authors = [
     { name = "TurboKach", email = "incognito@turbokach.me" }
 ]

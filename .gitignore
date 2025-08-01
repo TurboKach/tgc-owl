@@ -197,3 +197,4 @@ cython_debug/
 
 # Telegram Analytics Bot
 *.session
+sessions/
