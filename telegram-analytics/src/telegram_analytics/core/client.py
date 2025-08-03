@@ -1,7 +1,7 @@
 """Telethon client wrapper for Telegram Analytics."""
 
 import logging
-from typing import Optional
+from typing import Optional, Any
 
 from telethon import TelegramClient, errors
 from telethon.sessions import StringSession
@@ -231,6 +231,63 @@ class TelegramAnalyticsClient:
             return bool(result)
         except Exception:
             return False
+
+    async def get_entity(self, entity: Any) -> Any:
+        """Get entity information from Telegram.
+
+        Args:
+            entity: Username, phone, or entity ID.
+
+        Returns:
+            Entity object.
+        """
+        if not self.client:
+            raise RuntimeError("Client not initialized")
+
+        return await self.client.get_entity(entity)
+
+    def iter_participants(self, entity: Any, **kwargs: Any) -> Any:
+        """Iterate over participants in a chat.
+
+        Args:
+            entity: Chat entity.
+            **kwargs: Additional arguments.
+
+        Returns:
+            Async iterator over participants.
+        """
+        if not self.client:
+            raise RuntimeError("Client not initialized")
+
+        return self.client.iter_participants(entity, **kwargs)
+
+    def iter_dialogs(self, **kwargs: Any) -> Any:
+        """Iterate over user's dialogs.
+
+        Args:
+            **kwargs: Additional arguments.
+
+        Returns:
+            Async iterator over dialogs.
+        """
+        if not self.client:
+            raise RuntimeError("Client not initialized")
+
+        return self.client.iter_dialogs(**kwargs)
+
+    async def __call__(self, request: Any) -> Any:
+        """Make a direct API call (delegate to underlying client).
+
+        Args:
+            request: Telegram API request object.
+
+        Returns:
+            API response.
+        """
+        if not self.client:
+            raise RuntimeError("Client not initialized")
+
+        return await self.client(request)
 
     async def disconnect(self) -> None:
         """Disconnect from Telegram."""

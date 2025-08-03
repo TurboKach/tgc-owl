@@ -1,18 +1,12 @@
 """Unit tests for Telegram client functionality."""
 
-import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-# Add src to path
-src_path = Path(__file__).parent.parent / "src"
-sys.path.insert(0, str(src_path))
-
-# pylint: disable=wrong-import-position
-from src.telegram_analytics.core.client import TelegramAnalyticsClient  # noqa: E402
-from src.telegram_analytics.core.config import TelegramConfig  # noqa: E402
+from src.telegram_analytics.core.client import TelegramAnalyticsClient
+from src.telegram_analytics.core.config import TelegramConfig
 
 
 class TestTelegramAnalyticsClient:

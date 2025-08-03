@@ -193,7 +193,7 @@ jobs:
         echo ""
         echo "🔍 Validating specific documentation..."
         
-        # Check README has launch instructions
+        # Check README has launch instructions (check root README)
         if ! grep -q "make\|python" README.md; then
           echo "❌ README.md missing launch instructions"
           exit 1

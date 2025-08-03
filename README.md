@@ -122,21 +122,129 @@ uv run pytest tests/ -v              # Unit tests verbose
 uv run pytest tests/test_client.py   # Specific test file
 ```
 
+### 6. Test Channel Management Features
+
+After authentication is working, you can test the new channel management functionality:
+
+#### Quick Internal Testing
+
+**1. Run the demo script (no authentication required):**
+```bash
+# Demonstrates invite link parsing and features overview
+uv run python example_channel_manager.py
+```
+
+**2. Run unit tests to verify functionality:**
+```bash
+# Test all channel management features
+uv run pytest tests/test_channel_manager.py -v
+
+# Test specific functionality
+uv run pytest tests/test_channel_manager.py::TestChannelManager::test_extract_invite_hash_valid_links -v
+```
+
+**3. Check the implemented features:**
+- ✅ **Invite Link Parsing**: Extract hashes from various Telegram invite link formats  
+- ✅ **Channel Joining**: Join channels via invite links and public usernames
+- ✅ **Admin Rights Detection**: Check and extract admin permissions  
+- ✅ **Channel Information**: Retrieve detailed channel data and participant counts
+- ✅ **Error Handling**: Comprehensive handling for expired invites, private channels, etc.
+- ✅ **Channel Listing**: List all joined channels with status information
+
+#### Production Testing (Real Telegram API)
+
+**Prerequisites:** Complete authentication setup first (`make auth-setup`)
+
+**1. Run the production test script:**
+```bash
+# The script is already included in the project
+uv run python test_channel_prod.py
+```
+
+This script safely tests:
+- ✅ **Authentication verification**
+- ✅ **Public channel joining** (using @telegram - safe)
+- ✅ **Channel listing** (your existing channels)
+- ✅ **Admin rights detection**
+- ✅ **Invite link parsing** (no API calls)
+- ✅ **Error handling** and flood wait management
+
+#### Expected Production Output
+```bash
+🚀 Testing Channel Management in Production
+==================================================
+✅ Authenticated successfully!
+👤 Logged in as: Your Name (@yourusername)
+
+📺 Testing Channel Operations...
+
+1️⃣ Testing public channel join...
+   Status: joined
+   Channel: Telegram
+   Members: 7,832,145
+   Admin rights: None
+
+2️⃣ Listing all joined channels...
+   Found 12 channels:
+   1. 👥 Telegram (7,832,145 members)
+   2. ⭐ My Test Channel (156 members)
+   3. 👑 My Own Channel (1,024 members)
+   4. 👥 Python Developers (45,231 members)
+   5. 👥 Tech News (12,847 members)
+   ... and 7 more
+
+3️⃣ Getting detailed channel info...
+   Channel: Telegram
+   Your status: joined
+   Admin permissions: None
+
+4️⃣ Testing invite link parsing...
+   https://t.me/joinchat/AAAAAEHbEkejzxUjAUCfYg → ✅ Valid
+      Hash: AAAAAEHbEkejzxUjAUCfYg
+   https://t.me/+BbBbBbEkejzxUjAUCfYg → ✅ Valid
+      Hash: BbBbBbEkejzxUjAUCfYg
+   @telegram → ❌ Invalid
+   invalid_link → ❌ Invalid
+
+✅ All tests completed!
+```
+
+**What this test verifies:**
+- ✅ **Authentication**: Your Telegram API credentials work
+- ✅ **Channel Joining**: Can join public channels successfully  
+- ✅ **Channel Listing**: Retrieves all your joined channels with correct counts
+- ✅ **Admin Detection**: Identifies your role in each channel (member/admin/creator)
+- ✅ **Invite Parsing**: Correctly extracts hashes from various invite link formats
+- ✅ **Error Handling**: Handles invalid links and API errors gracefully
+
+**Safe Testing Notes:**
+- Uses only public channels (like @telegram)
+- Only reads existing data, doesn't modify anything
+- Includes proper authentication checks
+- Handles all errors gracefully
+
 ## 📋 Current Status
 
-### ✅ What's Working (Step 1.1 Complete)
+### ✅ What's Working (Steps 1.1 & 1.2 Complete)
 
+**Step 1.1 - Core Infrastructure:**
 - **Authentication System**: Full Telethon userbot authentication
 - **Session Management**: Persistent session storage and reuse
 - **Configuration**: Environment-based configuration with Pydantic
 - **Error Handling**: Proper handling of Telegram API errors
 - **Testing**: Unit tests and validation scripts
 
-### 🚧 In Development (Step 1.2)
+**Step 1.2 - Channel Management:**
+- **Channel Joining**: Join channels via invite links and public usernames
+- **Admin Rights Verification**: Check and extract admin permissions
+- **Channel Information**: Retrieve detailed channel data and participant counts
+- **Error Handling**: Comprehensive handling for expired invites, private channels, etc.
+- **Channel Listing**: List all joined channels with status information
 
-- Channel joining via invite links
-- Admin rights verification
-- Channel management functionality
+### 🚧 In Development (Step 1.3)
+
+- Real-time user event tracking (join/leave events)
+- Event data persistence and analytics
 
 ### 📁 Project Structure
 
@@ -145,9 +253,13 @@ telegram-analytics/
 ├── src/telegram_analytics/
 │   └── core/
 │       ├── config.py          # Configuration management
-│       └── client.py          # Telethon client wrapper
+│       ├── client.py          # Telethon client wrapper
+│       └── channel_manager.py # Channel management (Step 1.2)
 ├── tests/
-│   └── test_client.py         # Unit tests
+│   ├── test_client.py         # Client unit tests
+│   └── test_channel_manager.py # Channel management unit tests
+├── example_channel_manager.py # Demo script for channel features
+├── test_channel_prod.py      # Production test (real API)
 ├── .env.example              # Environment template
 ├── .env                      # Your config (create this)
 ├── test_login.py             # Authentication test
@@ -275,10 +387,24 @@ telegram.errors.rpcerrorlist.FloodWaitError: A wait of X seconds is required
 Once authentication is working:
 
 1. **Test with your credentials** using the setup guide
-2. **Join a test channel** to verify userbot functionality  
-3. **Implement Step 1.2** - Channel joining and admin verification
-4. **Continue with the development plan** for full analytics features
+2. **Test channel management features**:
+   ```bash
+   # Quick demo (no auth needed)
+   uv run python example_channel_manager.py
+   
+   # Run all unit tests to verify functionality  
+   make test
+   
+   # Test with real Telegram API (requires auth)
+   uv run python test_channel_prod.py
+   
+   # Test specific unit test features
+   uv run pytest tests/test_channel_manager.py -v
+   ```
+3. **Join a test channel** to verify userbot functionality
+4. **Implement Step 1.3** - Real-time user event tracking
+5. **Continue with the development plan** for full analytics features
 
 ---
 
-**Current Phase**: Step 1.1 ✅ Complete | Step 1.2 🚧 In Progress
+**Current Phase**: Step 1.1 ✅ Complete | Step 1.2 ✅ Complete | Step 1.3 🚧 In Progress
